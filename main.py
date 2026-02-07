@@ -1,24 +1,103 @@
+import re
+import random
+import asyncio
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
+from astrbot.api.platform import MessageType
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
-    def __init__(self, context: Context):
+@register("astrbot_plugin_sentinel", "Foolllll", "检测群聊中消息是否出现关键词然后撤回加禁言", "v0.1.0")
+class SentinelPlugin(Star):
+    def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
+        self.config = config or {}
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
+    @filter.event_message_type(filter.EventMessageType.ALL, priority=10)
+    async def on_message(self, event: AstrMessageEvent):
+        # 仅处理群聊消息
+        if event.get_message_type() != MessageType.GROUP_MESSAGE:
+            return
 
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
+        group_id = str(event.get_group_id())
+        
+        # 检查黑名单
+        blacklist = self.config.get("group_blacklist", [])
+        if group_id in [str(g) for g in blacklist]:
+            return
+
+        message_str = event.message_str
+        rules = self.config.get("sentinel_rules", [])
+        
+        for rule in rules:
+            # 检查群组限制
+            target_groups = rule.get("groups", [])
+            if target_groups and group_id not in [str(g) for g in target_groups]:
+                continue
+            
+            # 检查关键词
+            keywords = rule.get("keywords", [])
+            matched = False
+            for kw in keywords:
+                try:
+                    if re.search(kw, message_str):
+                        matched = True
+                        break
+                except re.error as e:
+                    logger.error(f"[Sentinel] 正则表达式错误: {kw}, 错误: {e}")
+                    # 如果正则解析失败，回退到普通字符串匹配
+                    if kw in message_str:
+                        matched = True
+                        break
+            
+            if matched:
+                await self.execute_actions(event, rule)
+                event.stop_event()
+                break
+
+    async def execute_actions(self, event: AstrMessageEvent, rule: dict):
+        group_id = event.get_group_id()
+        user_id = event.get_sender_id()
+        message_id = event.message_obj.message_id
+        
+        # 1. 撤回消息
+        try:
+            await event.bot.api.call_action("delete_msg", message_id=message_id)
+            logger.info(f"[Sentinel] 已撤回群 {group_id} 中用户 {user_id} 的违规消息: {message_id}")
+        except Exception as e:
+            logger.error(f"[Sentinel] 撤回消息失败: {e}")
+
+        # 2. 禁言
+        mute_duration_str = str(rule.get("mute_duration", "0"))
+        duration = 0
+        if "-" in mute_duration_str:
+            try:
+                start, end = map(int, mute_duration_str.split("-"))
+                duration = random.randint(start, end)
+            except ValueError:
+                logger.error(f"[Sentinel] 禁言时长格式错误: {mute_duration_str}")
+        else:
+            try:
+                duration = int(mute_duration_str)
+            except ValueError:
+                logger.error(f"[Sentinel] 禁言时长格式错误: {mute_duration_str}")
+        
+        if duration > 0:
+            try:
+                await event.bot.api.call_action(
+                    "set_group_ban", 
+                    group_id=int(group_id), 
+                    user_id=int(user_id), 
+                    duration=duration
+                )
+                logger.info(f"[Sentinel] 已禁言群 {group_id} 中用户 {user_id}，时长: {duration}秒")
+            except Exception as e:
+                logger.error(f"[Sentinel] 禁言失败: {e}")
+
+        # 3. 发送回复提醒
+        reply_message = rule.get("reply_message", "")
+        if reply_message:
+            await asyncio.sleep(0.5)
+            await event.send(event.plain_result(reply_message))
 
     async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+        pass

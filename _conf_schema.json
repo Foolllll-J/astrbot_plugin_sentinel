@@ -1,0 +1,44 @@
+{
+    "group_blacklist": {
+        "type": "list",
+        "description": "群聊黑名单",
+        "hint": "黑名单中的群聊不会触发关键词检测",
+        "default": []
+    },
+    "sentinel_rules": {
+        "type": "template_list",
+        "description": "检测规则配置",
+        "templates": {
+            "keyword_rule": {
+                "name": "关键词规则",
+                "hint": "当群聊消息匹配关键词时执行操作",
+                "items": {
+                    "keywords": {
+                        "description": "关键词列表",
+                        "hint": "支持正则表达式",
+                        "type": "list",
+                        "default": []
+                    },
+                    "groups": {
+                        "description": "生效群号列表",
+                        "hint": "留空表示所有群聊生效",
+                        "type": "list",
+                        "default": []
+                    },
+                    "mute_duration": {
+                        "description": "禁言时长 (秒)",
+                        "hint": "支持范围如 '30-60'，0表示不禁言",
+                        "type": "string",
+                        "default": "0"
+                    },
+                    "reply_message": {
+                        "description": "撤回后发送的回复提醒",
+                        "hint": "留空表示不回复",
+                        "type": "string",
+                        "default": ""
+                    }
+                }
+            }
+        }
+    }
+}

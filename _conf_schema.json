@@ -5,6 +5,12 @@
         "hint": "黑名单中的群聊不会触发关键词检测",
         "default": []
     },
+    "user_whitelist": {
+        "type": "list",
+        "description": "用户白名单",
+        "hint": "白名单中的用户在所有群聊中都不会触发关键词检测",
+        "default": []
+    },
     "sentinel_rules": {
         "type": "template_list",
         "description": "检测规则配置",
@@ -20,20 +26,44 @@
                         "default": []
                     },
                     "groups": {
-                        "description": "生效群号列表",
+                        "description": "生效群聊列表",
                         "hint": "留空表示所有群聊生效",
                         "type": "list",
                         "default": []
                     },
                     "mute_duration": {
                         "description": "禁言时长 (秒)",
-                        "hint": "支持范围如 '30-60'，0表示不禁言",
+                        "hint": "支持范围如 '30-120'，0表示不禁言",
                         "type": "string",
                         "default": "0"
                     },
                     "reply_message": {
                         "description": "撤回后发送的回复提醒",
                         "hint": "留空表示不回复",
+                        "type": "string",
+                        "default": ""
+                    },
+                    "ignore_admin": {
+                        "description": "忽略管理员",
+                        "hint": "开启后，管理员触发关键词将不会被处理",
+                        "type": "bool",
+                        "default": false
+                    },
+                    "rule_user_whitelist": {
+                        "description": "规则特定用户白名单",
+                        "hint": "该名单中的用户不会触发此条规则",
+                        "type": "list",
+                        "default": []
+                    },
+                    "kick_threshold": {
+                        "description": "踢出阈值 (次数)",
+                        "hint": "累计命中该规则 N 次后踢出，0 表示不开启",
+                        "type": "int",
+                        "default": 0
+                    },
+                    "kick_message": {
+                        "description": "踢出后的提示消息",
+                        "hint": "留空表示不发送",
                         "type": "string",
                         "default": ""
                     }

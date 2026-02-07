@@ -1,6 +1,6 @@
 name: astrbot_plugin_sentinel # 插件唯一识别名，以 astrbot_plugin_ 前缀开头
-display_name: 群卫兵 # 用于展示的名字，可以是方便人类阅读的名字（需要版本 >= v4.5.0，低版本不会报错，请放心填写）
-desc: AstrBot 插件示例。 # 插件简短描述
-version: v0.1.0 # 插件版本号。格式：v1.1.1 或者 v1.1
+display_name: QQ 群哨兵 # 用于展示的名字，可以是方便人类阅读的名字（需要版本 >= v4.5.0，低版本不会报错，请放心填写）
+desc: 实时监控群聊消息，通过关键词或正则表达式进行识别，并自动执行撤回、禁言以及踢出等操作。 # 插件简短描述
+version: v1.0 # 插件版本号。格式：v1.1.1 或者 v1.1
 author: Foolllll # 作者
 repo: https://github.com/Foolllll-J/astrbot_plugin_sentinel # 插件的仓库地址

@@ -39,9 +39,9 @@
                     },
                     "reply_message": {
                         "description": "撤回后发送的回复提醒",
-                        "hint": "留空表示不回复",
-                        "type": "string",
-                        "default": ""
+                        "hint": "若填写多个，将从中随机选取一条发送。",
+                        "type": "list",
+                        "default": []
                     },
                     "ignore_admin": {
                         "description": "忽略管理员",
@@ -69,9 +69,9 @@
                     },
                     "kick_message": {
                         "description": "踢出后的提示消息",
-                        "hint": "留空表示不发送",
-                        "type": "string",
-                        "default": ""
+                        "hint": "若填写多个，将从中随机选取一条发送。",
+                        "type": "list",
+                        "default": []
                     }
                 }
             }

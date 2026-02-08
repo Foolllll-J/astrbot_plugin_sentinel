@@ -151,10 +151,12 @@ class SentinelPlugin(Star):
                 logger.error(f"[Sentinel] 禁言失败: {e}。请确认 Bot 是否具有管理员权限。")
 
         # 3. 发送回复
-        reply_message = rule.get("reply_message", "")
-        if reply_message:
-            await asyncio.sleep(0.5)
-            await event.send(event.plain_result(reply_message))
+        reply_messages = rule.get("reply_message", [])
+        if reply_messages:
+            reply_text = random.choice(reply_messages)
+            if reply_text:
+                await asyncio.sleep(0.5)
+                await event.send(event.plain_result(reply_text))
 
         # 4. 踢人与计数逻辑
         kick_threshold = rule.get("kick_threshold", 0)
@@ -180,9 +182,11 @@ class SentinelPlugin(Star):
                     )
                     logger.info(f"[Sentinel] 用户 {user_id} 在群 {group_id} 命中规则 {rule_index} 达到阈值 {kick_threshold}，已踢出。")
                     
-                    kick_msg = rule.get("kick_message", "")
-                    if kick_msg:
-                        await event.send(event.plain_result(kick_msg))
+                    kick_messages = rule.get("kick_message", [])
+                    if kick_messages:
+                        kick_text = random.choice(kick_messages)
+                        if kick_text:
+                            await event.send(event.plain_result(kick_text))
                     
                     await self.delete_kv_data(kv_key)
                 except Exception as e:

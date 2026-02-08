@@ -55,6 +55,12 @@
                         "type": "list",
                         "default": []
                     },
+                    "rule_user_monitor_list": {
+                        "description": "规则特定用户监控名单",
+                        "hint": "如果填写，则只有该名单中的用户会触发此条规则。留空表示监控所有人。",
+                        "type": "list",
+                        "default": []
+                    },
                     "kick_threshold": {
                         "description": "踢出阈值 (次数)",
                         "hint": "累计命中该规则 N 次后踢出，0 表示不开启",

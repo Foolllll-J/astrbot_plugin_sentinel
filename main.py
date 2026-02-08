@@ -30,6 +30,7 @@ class SentinelPlugin(Star):
             compiled_rule = rule.copy()
             # 预处理规则级集合
             compiled_rule["_user_whitelist_set"] = {str(u) for u in rule.get("rule_user_whitelist", [])}
+            compiled_rule["_user_monitor_list_set"] = {str(u) for u in rule.get("rule_user_monitor_list", [])}
             compiled_rule["_groups_set"] = {str(g) for g in rule.get("groups", [])}
             
             # 预编译正则
@@ -78,6 +79,11 @@ class SentinelPlugin(Star):
 
         # 3. 匹配规则
         for i, rule in enumerate(self._compiled_rules):
+            # 监控名单检查：如果设置了监控名单且用户不在其中，跳过此规则
+            monitor_set = rule["_user_monitor_list_set"]
+            if monitor_set and user_id not in monitor_set:
+                continue
+
             # 规则白名单检查
             if user_id in rule["_user_whitelist_set"]:
                 continue

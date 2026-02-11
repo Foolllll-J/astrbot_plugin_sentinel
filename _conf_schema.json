@@ -74,6 +74,81 @@
                         "default": []
                     }
                 }
+            },
+            "type_rule": {
+                "name": "消息类型规则",
+                "hint": "当群聊消息属于指定类型时执行操作",
+                "items": {
+                    "msg_types": {
+                        "description": "检测消息类型",
+                        "type": "list",
+                        "hint": "选择需要监控的消息类型。",
+                        "options": [
+                            "图片",
+                            "语音",
+                            "视频",
+                            "文件",
+                            "表情",
+                            "转发消息",
+                            "卡片/分享"
+                        ],
+                        "default": []
+                    },
+                    "time_range": {
+                        "description": "检测时间段",
+                        "hint": "格式如 '23:23-01:34'，支持跨天。留空表示全天监控。",
+                        "type": "string",
+                        "default": ""
+                    },
+                    "groups": {
+                        "description": "生效群聊列表",
+                        "hint": "留空表示所有群聊生效",
+                        "type": "list",
+                        "default": []
+                    },
+                    "mute_duration": {
+                        "description": "禁言时长 (秒)",
+                        "hint": "支持范围如 '30-120'，0表示不禁言",
+                        "type": "string",
+                        "default": "0"
+                    },
+                    "reply_message": {
+                        "description": "撤回后发送的回复提醒",
+                        "hint": "若填写多个，将从中随机选取一条发送。",
+                        "type": "list",
+                        "default": []
+                    },
+                    "ignore_admin": {
+                        "description": "忽略管理员",
+                        "hint": "开启后，管理员触发将不会被处理",
+                        "type": "bool",
+                        "default": false
+                    },
+                    "rule_user_whitelist": {
+                        "description": "规则特定用户白名单",
+                        "hint": "该名单中的用户不会触发此条规则",
+                        "type": "list",
+                        "default": []
+                    },
+                    "rule_user_monitor_list": {
+                        "description": "规则特定用户监控名单",
+                        "hint": "如果填写，则只有该名单中的用户会触发此条规则。留空表示监控所有人。",
+                        "type": "list",
+                        "default": []
+                    },
+                    "kick_threshold": {
+                        "description": "踢出阈值 (次数)",
+                        "hint": "累计命中该规则 N 次后踢出，0 表示不开启",
+                        "type": "int",
+                        "default": 0
+                    },
+                    "kick_message": {
+                        "description": "踢出后的提示消息",
+                        "hint": "若填写多个，将从中随机选取一条发送。",
+                        "type": "list",
+                        "default": []
+                    }
+                }
             }
         }
     }

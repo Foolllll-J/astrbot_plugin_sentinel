@@ -8,7 +8,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 
-@register("astrbot_plugin_sentinel", "Foolllll", "实时监控群聊消息，通过关键词或正则表达式进行识别，并自动执行撤回、禁言以及踢出等操作。", "v1.0")
+@register("astrbot_plugin_sentinel", "Foolllll", "实时监控群聊消息，支持关键词、正则表达式及消息类型识别，自动执行撤回、禁言、踢出等操作。", "v1.0")
 class SentinelPlugin(Star):
     def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
@@ -101,11 +101,12 @@ class SentinelPlugin(Star):
             if not seg_type:
                 seg_type = msg_seg.__class__.__name__
             
-            if seg_type in ["Plain", "Text"]:
+            if seg_type in ["Plain"]:
+                msg_types.add("文本")
                 continue
             elif seg_type == "Image":
                 msg_types.add("图片")
-            elif seg_type in ["Record", "Voice"]:
+            elif seg_type in ["Record"]:
                 msg_types.add("语音")
             elif seg_type == "Video":
                 msg_types.add("视频")
@@ -181,25 +182,28 @@ class SentinelPlugin(Star):
         user_id = event.get_sender_id()
         message_id = event.message_obj.message_id
         
-        # 1. 撤回消息
-        try:
-            await event.bot.api.call_action("delete_msg", message_id=message_id)
-            logger.info(f"[Sentinel] 已撤回群 {group_id} 中用户 {user_id} 的违规消息: {message_id}")
-        except Exception as e:
-            logger.error(f"[Sentinel] 撤回消息失败: {e}。请确认 Bot 是否具有管理员权限。")
-
-        # 2. 禁言逻辑
-        mute_duration_str = str(rule.get("mute_duration", "0"))
+        # 解析禁言时长
+        mute_duration_str = str(rule.get("mute_duration", "0")).strip()
         duration = 0
         try:
-            if "-" in mute_duration_str:
+            # 只有当 "-" 不在开头（即作为分隔符）时才判定为范围
+            if "-" in mute_duration_str and not mute_duration_str.startswith("-"):
                 start, end = map(int, mute_duration_str.split("-"))
-                duration = random.randint(start, end)
+                duration = random.randint(min(start, end), max(start, end))
             else:
-                duration = int(mute_duration_str)
-        except ValueError:
+                duration = int(float(mute_duration_str))
+        except (ValueError, TypeError):
             logger.error(f"[Sentinel] 禁言时长格式错误: {mute_duration_str}")
-        
+
+        # 1. 撤回消息 (-1 表示不撤回也不禁言)
+        if duration != -1:
+            try:
+                await event.bot.api.call_action("delete_msg", message_id=message_id)
+                logger.info(f"[Sentinel] 已撤回群 {group_id} 中用户 {user_id} 的违规消息: {message_id}")
+            except Exception as e:
+                logger.error(f"[Sentinel] 撤回消息失败: {e}。请确认 Bot 是否具有管理员权限。")
+
+        # 2. 禁言逻辑
         if duration > 0:
             try:
                 await event.bot.api.call_action(

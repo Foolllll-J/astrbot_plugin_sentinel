@@ -218,27 +218,30 @@ class SentinelPlugin(Star):
     def _extract_at_user_ids(self, event: AstrMessageEvent) -> List[str]:
         ids = []
         seen = set()
+        self_id = ""
+        try:
+            self_id = str(event.get_self_id() or "").strip()
+        except Exception:
+            self_id = ""
+
+        def _append_if_valid(raw_id: str):
+            qq = str(raw_id).strip()
+            if not qq or qq == "all" or qq == self_id or qq in seen:
+                return
+            seen.add(qq)
+            ids.append(qq)
 
         for seg in event.get_messages() or []:
             seg_type = getattr(getattr(seg, "type", None), "name", None) or seg.__class__.__name__
             if seg_type != "At":
                 continue
-            qq = str(getattr(seg, "qq", "")).strip()
-            if qq and qq != "all" and qq not in seen:
-                seen.add(qq)
-                ids.append(qq)
+            _append_if_valid(getattr(seg, "qq", ""))
 
         text = event.message_str or ""
         for m in re.finditer(r"\[CQ:at,qq=([^,\]]+)", text, flags=re.IGNORECASE):
-            qq = m.group(1).strip()
-            if qq and qq != "all" and qq not in seen:
-                seen.add(qq)
-                ids.append(qq)
+            _append_if_valid(m.group(1))
         for m in re.finditer(r"@(\d{5,})", text):
-            qq = m.group(1).strip()
-            if qq and qq not in seen:
-                seen.add(qq)
-                ids.append(qq)
+            _append_if_valid(m.group(1))
         return ids
 
     def _extract_command_keyword(self, event: AstrMessageEvent) -> str:

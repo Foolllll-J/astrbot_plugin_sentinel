@@ -215,6 +215,84 @@ class SentinelPlugin(Star):
             logger.error(f"[Sentinel] 时间段格式错误: {time_range}, 错误: {e}")
             return True
 
+    def _extract_json_descriptive_text(self, json_payload: Any) -> str:
+        """从分享卡片 JSON 中提取适合做关键词检测的介绍性文字。"""
+        descriptive_keys = {
+            "title",
+            "desc",
+            "description",
+            "prompt",
+            "content",
+            "text",
+            "brief",
+            "summary",
+            "subtitle",
+        }
+        ignored_keys = {
+            "app",
+            "appid",
+            "app_type",
+            "bizsrc",
+            "config",
+            "ctime",
+            "extra",
+            "jumpUrl",
+            "preview",
+            "tagIcon",
+            "token",
+            "uin",
+            "ver",
+            "view",
+        }
+        texts = []
+        seen = set()
+
+        def _append_text(value: Any):
+            text = str(value).strip()
+            if not text or text in seen:
+                return
+            # 忽略 URL、纯数字和明显的机器标识，避免误伤短关键词。
+            if re.match(r"^https?://", text, flags=re.IGNORECASE):
+                return
+            if text.isdigit():
+                return
+            if re.fullmatch(r"[A-Za-z0-9_\-=:/.]{16,}", text):
+                return
+            seen.add(text)
+            texts.append(text)
+
+        def _walk(node: Any, parent_key: str = ""):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    key_text = str(key).strip()
+                    if key_text in ignored_keys:
+                        continue
+                    if key_text in descriptive_keys and not isinstance(value, (dict, list)):
+                        _append_text(value)
+                        continue
+                    _walk(value, key_text)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    _walk(item, parent_key)
+                return
+            if parent_key in descriptive_keys:
+                _append_text(node)
+
+        parsed_payload = json_payload
+        if isinstance(json_payload, str):
+            raw_text = json_payload.strip()
+            if raw_text:
+                try:
+                    parsed_payload = json.loads(raw_text)
+                except json.JSONDecodeError:
+                    return raw_text
+            else:
+                return ""
+
+        _walk(parsed_payload)
+        return " ".join(texts)
+
     def _extract_at_user_ids(self, event: AstrMessageEvent) -> List[str]:
         ids = []
         seen = set()
@@ -390,10 +468,9 @@ class SentinelPlugin(Star):
             elif seg_type == "Json":
                 msg_types.add("卡片/分享")
                 json_data = getattr(msg_seg, 'data', '{}')
-                if isinstance(json_data, dict):
-                    content_parts.append(json.dumps(json_data, ensure_ascii=False))
-                else:
-                    content_parts.append(str(json_data))
+                descriptive_text = self._extract_json_descriptive_text(json_data)
+                if descriptive_text:
+                    content_parts.append(descriptive_text)
 
         message_to_check = " ".join(content_parts)
 

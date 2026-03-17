@@ -126,7 +126,8 @@
 | `mute_duration` | `string` | 禁言秒数或区间，`0` 不禁言，`-1` 不撤回不禁言 |
 | `reply_message` | `list` | 命中后随机回复 |
 | `ignore_admin` | `bool` | 是否忽略管理员 |
-| `notify_admin` | `bool` | 是否通知管理员 |
+| `notify_group_admin` | `bool` | 是否通知群组管理员 |
+| `notify_bot_admin` | `bool` | 是否通知 Bot 管理员 |
 | `rule_user_whitelist` | `list` | 规则级用户白名单 |
 | `rule_user_monitor_list` | `list` | 规则级监控名单，留空表示全体 |
 | `kick_threshold` | `int` | 累计命中踢出阈值 |

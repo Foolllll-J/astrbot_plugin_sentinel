@@ -21,7 +21,6 @@ class SentinelPlugin(Star):
         self._global_whitelist_set = set()
         self._group_blacklist_set = set()
         self._command_whitelist_set = set()
-        self._observed_admin_ids = set()
         self._command_rules_lock = asyncio.Lock()
         self._warned_no_admin_targets = False
         self._update_cache()
@@ -339,27 +338,49 @@ class SentinelPlugin(Star):
             pass
         return str(event.get_sender_id()) in self._command_whitelist_set
 
-    def _capture_admin(self, event: AstrMessageEvent, role: str):
-        sender_id = str(event.get_sender_id())
-        if role in {"owner", "admin"}:
-            self._observed_admin_ids.add(sender_id)
-            return
+    async def _get_group_admin_targets(self, event: AstrMessageEvent) -> Set[str]:
+        """实时获取群组管理员列表"""
         try:
-            if event.is_admin():
-                self._observed_admin_ids.add(sender_id)
-        except Exception:
-            pass
+            group_id = event.get_group_id()
+            member_list = await event.bot.api.call_action("get_group_member_list", group_id=group_id)
 
-    def _get_admin_targets(self) -> Set[str]:
-        targets = set(self._observed_admin_ids)
+            # 获取Bot自身的ID以便剔除
+            self_id = str(event.get_self_id() or "").strip()
+
+            admin_ids = set()
+            for member in member_list:
+                role = member.get('role', '')
+                user_id = str(member.get('user_id', '')).strip()
+
+                # 只收集admin和owner，剔除Bot自身
+                if role in ['admin', 'owner'] and user_id and user_id != self_id:
+                    admin_ids.add(user_id)
+
+            logger.debug(f"[Sentinel] 群 {group_id} 的管理员列表: {admin_ids}")
+            return admin_ids
+        except Exception as e:
+            logger.error(f"[Sentinel] 获取群管理员列表失败: {e}")
+            return set()
+
+    def _get_bot_admin_targets(self) -> Set[str]:
+        """获取Bot全局管理员列表，严格过滤QQ号格式"""
         try:
             cfg = self.context.get_config()
             admin_ids = cfg.get("admins_id", [])
             if isinstance(admin_ids, list):
-                targets.update({str(x).strip() for x in admin_ids if str(x).strip()})
+                # 严格过滤：只接受纯数字且长度合理的QQ号
+                valid_qq_ids = {
+                    str(x).strip() for x in admin_ids
+                    if str(x).strip().isdigit() and 5 <= len(str(x).strip()) <= 15
+                }
+                # 记录被过滤的无效管理员ID
+                invalid_ids = {str(x).strip() for x in admin_ids if str(x).strip()} - valid_qq_ids
+                if invalid_ids:
+                    logger.warning(f"[Sentinel] 过滤了无效的Bot管理员ID: {', '.join(invalid_ids)}")
+                return valid_qq_ids
         except Exception as e:
             logger.debug(f"[Sentinel] 读取 admins_id 失败: {e}")
-        return targets
+        return set()
 
     async def _send_private_msg(self, event: AstrMessageEvent, user_ids: Set[str], message: str):
         if not message:
@@ -368,7 +389,13 @@ class SentinelPlugin(Star):
             try:
                 await event.bot.api.call_action("send_private_msg", user_id=str(uid), message=message)
             except Exception as e:
-                logger.error(f"[Sentinel] 私聊通知失败 user_id={uid}: {e}")
+                error_msg = str(e)
+                if "请先添加对方为好友" in error_msg:
+                    logger.warning(f"[Sentinel] 私聊通知失败 user_id={uid}: 未添加Bot为好友")
+                elif "无法获取用户信息" in error_msg:
+                    logger.warning(f"[Sentinel] 私聊通知失败 user_id={uid}: 无法获取用户信息")
+                else:
+                    logger.error(f"[Sentinel] 私聊通知失败 user_id={uid}: {error_msg[:100]}")  # 截断过长的错误信息
 
     async def _notify_for_hit(self, event: AstrMessageEvent, rule: dict, rule_id: str, duration: int):
         keywords = rule.get("keywords", [])
@@ -406,19 +433,31 @@ class SentinelPlugin(Star):
             await self._send_private_msg(event, {creator}, text)
             return
 
-        if not bool(rule.get("notify_admin", False)):
+        # 分别处理群组管理员和Bot管理员通知
+        notify_group_admin = bool(rule.get("notify_group_admin", False))
+        notify_bot_admin = bool(rule.get("notify_bot_admin", False))
+
+        if not notify_group_admin and not notify_bot_admin:
             return
-        admins = self._get_admin_targets()
-        if not admins:
-            if not self._warned_no_admin_targets:
+
+        # 获取通知目标
+        group_admins = await self._get_group_admin_targets(event) if notify_group_admin else set()
+        bot_admins = self._get_bot_admin_targets() if notify_bot_admin else set()
+
+        # 合并通知目标，自动去重（Bot管理员也是群管理员时不会重复通知）
+        all_targets = group_admins | bot_admins
+
+        if not all_targets:
+            if notify_bot_admin and not self._warned_no_admin_targets:
                 logger.warning(
-                    "[Sentinel] notify_admin 已开启，但未找到管理员通知目标。"
-                    "请检查全局配置 admins_id 或确认管理员曾在会话中发言。"
+                    "[Sentinel] notify_bot_admin 已开启，但未找到有效的Bot管理员通知目标。"
+                    "请检查全局配置 admins_id 中是否包含有效的QQ号。"
                 )
                 self._warned_no_admin_targets = True
             return
+
         self._warned_no_admin_targets = False
-        await self._send_private_msg(event, admins, text)
+        await self._send_private_msg(event, all_targets, text)
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=10)
@@ -426,7 +465,6 @@ class SentinelPlugin(Star):
         """处理群聊消息，进行关键词检测、撤回及禁言。"""
         raw_message = event.message_obj.raw_message
         role = raw_message.get('sender', {}).get('role', 'member')
-        self._capture_admin(event, role)
 
         # 1. 基础过滤
         if role == 'owner':

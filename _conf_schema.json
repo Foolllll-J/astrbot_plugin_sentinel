@@ -50,9 +50,15 @@
                         "type": "bool",
                         "default": false
                     },
-                    "notify_admin": {
-                        "description": "通知管理员",
-                        "hint": "开启后，规则命中时会私聊通知管理员。",
+                    "notify_group_admin": {
+                        "description": "通知群组管理员",
+                        "hint": "开启后，规则命中时会私聊通知当前群的管理员。",
+                        "type": "bool",
+                        "default": false
+                    },
+                    "notify_bot_admin": {
+                        "description": "通知 Bot 管理员",
+                        "hint": "开启后，规则命中时会私聊通知 Bot 管理员。",
                         "type": "bool",
                         "default": false
                     },
@@ -132,9 +138,15 @@
                         "type": "bool",
                         "default": false
                     },
-                    "notify_admin": {
-                        "description": "通知管理员",
-                        "hint": "开启后，规则命中时会私聊通知管理员。",
+                    "notify_group_admin": {
+                        "description": "通知群组管理员",
+                        "hint": "开启后，规则命中时会私聊通知当前群的管理员。",
+                        "type": "bool",
+                        "default": false
+                    },
+                    "notify_bot_admin": {
+                        "description": "通知 Bot 管理员",
+                        "hint": "开启后，规则命中时会私聊通知 Bot 管理员。",
                         "type": "bool",
                         "default": false
                     },

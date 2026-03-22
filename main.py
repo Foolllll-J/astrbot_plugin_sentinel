@@ -553,7 +553,6 @@ class SentinelPlugin(Star):
             if matched:
                 rule_id = str(rule.get("_rule_id", i))
                 await self.execute_actions(event, rule, rule_id)
-                event.stop_event()
                 break
 
     async def execute_actions(self, event: AstrMessageEvent, rule: dict, rule_id: str):

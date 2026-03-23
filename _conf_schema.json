@@ -32,6 +32,12 @@
                         "type": "list",
                         "default": []
                     },
+                    "time_range": {
+                        "description": "生效时段",
+                        "hint": "支持混合片段：日期 + 星期 + 时间。示例：'10-01~10-07 Mon,Fri 22:00-02:00'、'09:00-18:00'。",
+                        "type": "string",
+                        "default": ""
+                    },
                     "mute_duration": {
                         "description": "禁言时长 (秒)",
                         "hint": "支持范围如 '30-120'，0表示不禁言，-1表示不禁言也不撤回",
@@ -109,8 +115,8 @@
                         "default": []
                     },
                     "time_range": {
-                        "description": "检测时间段",
-                        "hint": "格式如 '23:23-01:34'，支持跨天。留空表示全天监控。",
+                        "description": "生效时段",
+                        "hint": "支持混合片段：日期 + 星期 + 时间。示例：'10-01~10-07 Mon,Fri 22:00-02:00'、'09:00-18:00'。",
                         "type": "string",
                         "default": ""
                     },

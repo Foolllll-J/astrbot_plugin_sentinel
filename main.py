@@ -1,12 +1,20 @@
 import re
-import json
 import random
 import asyncio
 from datetime import datetime
-from typing import List, Set, Dict, Any
+from typing import List, Dict, Any
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
+from .utils import (
+    extract_at_user_ids,
+    extract_command_keyword,
+    extract_json_descriptive_text,
+    is_in_active_when,
+    notify_for_hit,
+    parse_active_when,
+    render_template_text,
+)
 
 
 class SentinelPlugin(Star):
@@ -147,6 +155,17 @@ class SentinelPlugin(Star):
             compiled_rule["_compiled_patterns"] = compiled_patterns
 
             compiled_rule["_msg_types_set"] = set(rule.get("msg_types", []))
+            schedule_raw = str(rule.get("time_range", "") or "").strip()
+            compiled_rule["_active_when_raw"] = schedule_raw
+            compiled_rule["_active_when_spec"] = None
+            compiled_rule["_active_when_error"] = None
+            if schedule_raw:
+                spec, err = parse_active_when(schedule_raw)
+                compiled_rule["_active_when_spec"] = spec
+                compiled_rule["_active_when_error"] = err
+                if err:
+                    rid = compiled_rule.get("_rule_id", i)
+                    logger.error(f"[Sentinel] 规则 {rid} time_range 配置错误: {err}")
 
             groups_set = compiled_rule["_groups_set"]
             if groups_set:
@@ -197,139 +216,6 @@ class SentinelPlugin(Star):
         effective["_notify_creator"] = cmd_cfg["notify_creator"]
         return effective
 
-    def _is_in_time_range(self, time_range: str) -> bool:
-        """检查当前时间是否在指定的时间段内(格式: 23:23-01:34)"""
-        if not time_range:
-            return True
-        try:
-            now = datetime.now().time()
-            now_str = now.strftime("%H:%M")
-            start_str, end_str = time_range.split("-")
-
-            if start_str <= end_str:
-                return start_str <= now_str <= end_str
-            else:
-                return now_str >= start_str or now_str <= end_str
-        except Exception as e:
-            logger.error(f"[Sentinel] 时间段格式错误: {time_range}, 错误: {e}")
-            return True
-
-    def _extract_json_descriptive_text(self, json_payload: Any) -> str:
-        """从分享卡片 JSON 中提取适合做关键词检测的介绍性文字。"""
-        descriptive_keys = {
-            "title",
-            "desc",
-            "description",
-            "prompt",
-            "content",
-            "text",
-            "brief",
-            "summary",
-            "subtitle",
-        }
-        ignored_keys = {
-            "app",
-            "appid",
-            "app_type",
-            "bizsrc",
-            "config",
-            "ctime",
-            "extra",
-            "jumpUrl",
-            "preview",
-            "tagIcon",
-            "token",
-            "uin",
-            "ver",
-            "view",
-        }
-        texts = []
-        seen = set()
-
-        def _append_text(value: Any):
-            text = str(value).strip()
-            if not text or text in seen:
-                return
-            # 忽略 URL、纯数字和明显的机器标识，避免误伤短关键词。
-            if re.match(r"^https?://", text, flags=re.IGNORECASE):
-                return
-            if text.isdigit():
-                return
-            if re.fullmatch(r"[A-Za-z0-9_\-=:/.]{16,}", text):
-                return
-            seen.add(text)
-            texts.append(text)
-
-        def _walk(node: Any, parent_key: str = ""):
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    key_text = str(key).strip()
-                    if key_text in ignored_keys:
-                        continue
-                    if key_text in descriptive_keys and not isinstance(value, (dict, list)):
-                        _append_text(value)
-                        continue
-                    _walk(value, key_text)
-                return
-            if isinstance(node, list):
-                for item in node:
-                    _walk(item, parent_key)
-                return
-            if parent_key in descriptive_keys:
-                _append_text(node)
-
-        parsed_payload = json_payload
-        if isinstance(json_payload, str):
-            raw_text = json_payload.strip()
-            if raw_text:
-                try:
-                    parsed_payload = json.loads(raw_text)
-                except json.JSONDecodeError:
-                    return raw_text
-            else:
-                return ""
-
-        _walk(parsed_payload)
-        return " ".join(texts)
-
-    def _extract_at_user_ids(self, event: AstrMessageEvent) -> List[str]:
-        ids = []
-        seen = set()
-        self_id = ""
-        try:
-            self_id = str(event.get_self_id() or "").strip()
-        except Exception:
-            self_id = ""
-
-        def _append_if_valid(raw_id: str):
-            qq = str(raw_id).strip()
-            if not qq or qq == "all" or qq == self_id or qq in seen:
-                return
-            seen.add(qq)
-            ids.append(qq)
-
-        for seg in event.get_messages() or []:
-            seg_type = getattr(getattr(seg, "type", None), "name", None) or seg.__class__.__name__
-            if seg_type != "At":
-                continue
-            _append_if_valid(getattr(seg, "qq", ""))
-
-        text = event.message_str or ""
-        for m in re.finditer(r"\[CQ:at,qq=([^,\]]+)", text, flags=re.IGNORECASE):
-            _append_if_valid(m.group(1))
-        for m in re.finditer(r"@(\d{5,})", text):
-            _append_if_valid(m.group(1))
-        return ids
-
-    def _extract_command_keyword(self, event: AstrMessageEvent) -> str:
-        parts = (event.message_str or "").strip().split()
-        if len(parts) < 2:
-            return ""
-        keyword = parts[1].strip()
-        if keyword.startswith("@") or "[CQ:at" in keyword:
-            return ""
-        return keyword
-
     def _is_command_allowed(self, event: AstrMessageEvent) -> bool:
         try:
             if event.is_admin():
@@ -337,127 +223,6 @@ class SentinelPlugin(Star):
         except Exception:
             pass
         return str(event.get_sender_id()) in self._command_whitelist_set
-
-    async def _get_group_admin_targets(self, event: AstrMessageEvent) -> Set[str]:
-        """实时获取群组管理员列表"""
-        try:
-            group_id = event.get_group_id()
-            member_list = await event.bot.api.call_action("get_group_member_list", group_id=group_id)
-
-            # 获取Bot自身的ID以便剔除
-            self_id = str(event.get_self_id() or "").strip()
-
-            admin_ids = set()
-            for member in member_list:
-                role = member.get('role', '')
-                user_id = str(member.get('user_id', '')).strip()
-
-                # 只收集admin和owner，剔除Bot自身
-                if role in ['admin', 'owner'] and user_id and user_id != self_id:
-                    admin_ids.add(user_id)
-
-            logger.debug(f"[Sentinel] 群 {group_id} 的管理员列表: {admin_ids}")
-            return admin_ids
-        except Exception as e:
-            logger.error(f"[Sentinel] 获取群管理员列表失败: {e}")
-            return set()
-
-    def _get_bot_admin_targets(self) -> Set[str]:
-        """获取Bot全局管理员列表，严格过滤QQ号格式"""
-        try:
-            cfg = self.context.get_config()
-            admin_ids = cfg.get("admins_id", [])
-            if isinstance(admin_ids, list):
-                # 严格过滤：只接受纯数字且长度合理的QQ号
-                valid_qq_ids = {
-                    str(x).strip() for x in admin_ids
-                    if str(x).strip().isdigit() and 5 <= len(str(x).strip()) <= 15
-                }
-                # 记录被过滤的无效管理员ID
-                invalid_ids = {str(x).strip() for x in admin_ids if str(x).strip()} - valid_qq_ids
-                if invalid_ids:
-                    logger.warning(f"[Sentinel] 过滤了无效的Bot管理员ID: {', '.join(invalid_ids)}")
-                return valid_qq_ids
-        except Exception as e:
-            logger.debug(f"[Sentinel] 读取 admins_id 失败: {e}")
-        return set()
-
-    async def _send_private_msg(self, event: AstrMessageEvent, user_ids: Set[str], message: str):
-        if not message:
-            return
-        for uid in user_ids:
-            try:
-                await event.bot.api.call_action("send_private_msg", user_id=str(uid), message=message)
-            except Exception as e:
-                error_msg = str(e)
-                if "请先添加对方为好友" in error_msg:
-                    logger.warning(f"[Sentinel] 私聊通知失败 user_id={uid}: 未添加Bot为好友")
-                elif "无法获取用户信息" in error_msg:
-                    logger.warning(f"[Sentinel] 私聊通知失败 user_id={uid}: 无法获取用户信息")
-                else:
-                    logger.error(f"[Sentinel] 私聊通知失败 user_id={uid}: {error_msg[:100]}")  # 截断过长的错误信息
-
-    async def _notify_for_hit(self, event: AstrMessageEvent, rule: dict, rule_id: str, duration: int):
-        keywords = rule.get("keywords", [])
-        msg_types = rule.get("msg_types", [])
-        if keywords:
-            match_desc = f"关键词: {', '.join(str(k) for k in keywords)}"
-        elif msg_types:
-            match_desc = f"消息类型: {', '.join(str(t) for t in msg_types)}"
-        else:
-            match_desc = "匹配条件: 未知"
-
-        actions = []
-        actions.append("撤回" if duration != -1 else "不撤回")
-        if duration > 0:
-            actions.append(f"禁言{duration}s")
-        kick_threshold = self._safe_int(rule.get("kick_threshold", 0), 0)
-        if kick_threshold > 0:
-            actions.append(f"累计{kick_threshold}次踢出")
-
-        text = (
-            f"⚠️ 群哨兵通知\n"
-            f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"群号: {event.get_group_id()}\n"
-            f"用户: {event.get_sender_id()}\n"
-            f"{match_desc}\n"
-            f"动作: {' / '.join(actions)}"
-        )
-
-        if rule.get("_rule_source") == "command":
-            if not bool(rule.get("_notify_creator", False)):
-                return
-            creator = str(rule.get("created_by", "")).strip()
-            if not creator:
-                return
-            await self._send_private_msg(event, {creator}, text)
-            return
-
-        # 分别处理群组管理员和Bot管理员通知
-        notify_group_admin = bool(rule.get("notify_group_admin", False))
-        notify_bot_admin = bool(rule.get("notify_bot_admin", False))
-
-        if not notify_group_admin and not notify_bot_admin:
-            return
-
-        # 获取通知目标
-        group_admins = await self._get_group_admin_targets(event) if notify_group_admin else set()
-        bot_admins = self._get_bot_admin_targets() if notify_bot_admin else set()
-
-        # 合并通知目标，自动去重（Bot管理员也是群管理员时不会重复通知）
-        all_targets = group_admins | bot_admins
-
-        if not all_targets:
-            if notify_bot_admin and not self._warned_no_admin_targets:
-                logger.warning(
-                    "[Sentinel] notify_bot_admin 已开启，但未找到有效的Bot管理员通知目标。"
-                    "请检查全局配置 admins_id 中是否包含有效的QQ号。"
-                )
-                self._warned_no_admin_targets = True
-            return
-
-        self._warned_no_admin_targets = False
-        await self._send_private_msg(event, all_targets, text)
 
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE, priority=10)
@@ -506,7 +271,7 @@ class SentinelPlugin(Star):
             elif seg_type == "Json":
                 msg_types.add("卡片/分享")
                 json_data = getattr(msg_seg, 'data', '{}')
-                descriptive_text = self._extract_json_descriptive_text(json_data)
+                descriptive_text = extract_json_descriptive_text(json_data)
                 if descriptive_text:
                     content_parts.append(descriptive_text)
 
@@ -517,7 +282,9 @@ class SentinelPlugin(Star):
         for i, raw_rule in enumerate(candidate_rules):
             rule = self._resolve_effective_rule(raw_rule)
 
-            if not self._is_in_time_range(rule.get("time_range", "")):
+            if rule.get("_active_when_error"):
+                continue
+            if not is_in_active_when(rule.get("_active_when_spec") or {}):
                 continue
 
             monitor_set = rule["_user_monitor_list_set"]
@@ -598,6 +365,7 @@ class SentinelPlugin(Star):
         if reply_messages:
             reply_text = random.choice(reply_messages)
             if reply_text:
+                reply_text = render_template_text(event, reply_text)
                 await asyncio.sleep(0.5)
                 await event.send(event.plain_result(reply_text))
 
@@ -629,6 +397,7 @@ class SentinelPlugin(Star):
                     if kick_messages:
                         kick_text = random.choice(kick_messages)
                         if kick_text:
+                            kick_text = render_template_text(event, kick_text)
                             await event.send(event.plain_result(kick_text))
 
                     await self.delete_kv_data(kv_key)
@@ -640,7 +409,15 @@ class SentinelPlugin(Star):
                     f"[Sentinel] 用户 {user_id} 命中规则 {rule_id}，当前累计次数: {current_hits}/{kick_threshold}"
                 )
 
-        await self._notify_for_hit(event, rule, rule_id, duration)
+        self._warned_no_admin_targets = await notify_for_hit(
+            event,
+            rule,
+            duration,
+            context=self.context,
+            safe_int=self._safe_int,
+            warned_no_admin_targets=self._warned_no_admin_targets,
+            logger=logger,
+        )
 
     @filter.command("监控")
     async def add_monitor_by_command(self, event: AstrMessageEvent):
@@ -656,7 +433,7 @@ class SentinelPlugin(Star):
             yield event.plain_result("❌ 请在群聊中使用该命令。")
             return
 
-        keyword = self._extract_command_keyword(event)
+        keyword = extract_command_keyword(event)
         if not keyword:
             yield event.plain_result("❌ 用法：/监控 <关键词> [@某人 ...]")
             return
@@ -666,7 +443,7 @@ class SentinelPlugin(Star):
             )
             return
 
-        target_user_ids = self._extract_at_user_ids(event)
+        target_user_ids = extract_at_user_ids(event)
         target_set = set(target_user_ids)
 
         duplicate_exists = False
@@ -718,7 +495,7 @@ class SentinelPlugin(Star):
 
         parts = (event.message_str or "").strip().split()
         arg = parts[1].strip() if len(parts) > 1 else ""
-        at_user_ids = self._extract_at_user_ids(event)
+        at_user_ids = extract_at_user_ids(event)
 
         if not arg and not at_user_ids:
             yield event.plain_result("❌ 用法：/取消监控 <rule_id> 或 /取消监控 [关键词] @某人")

@@ -178,7 +178,7 @@ def get_bot_admin_targets(context: Any, logger: Any) -> Set[str]:
             }
             invalid_ids = {str(x).strip() for x in admin_ids if str(x).strip()} - valid_qq_ids
             if invalid_ids:
-                logger.warning(f"[Sentinel] 过滤了无效的Bot管理员ID: {', '.join(invalid_ids)}")
+                logger.debug(f"[Sentinel] 过滤了无效的Bot管理员ID: {', '.join(invalid_ids)}")
             return valid_qq_ids
     except Exception as e:
         logger.debug(f"[Sentinel] 读取 admins_id 失败: {e}")
@@ -214,7 +214,10 @@ async def notify_for_hit(
     keywords = rule.get("keywords", [])
     msg_types = rule.get("msg_types", [])
     if keywords:
-        match_desc = f"关键词: {', '.join(str(k) for k in keywords)}"
+        if bool(rule.get("show_rule_in_notification", False)):
+            match_desc = f"关键词: {', '.join(str(k) for k in keywords)}"
+        else:
+            match_desc = "关键词规则: 已触发"
     elif msg_types:
         match_desc = f"消息类型: {', '.join(str(t) for t in msg_types)}"
     else:

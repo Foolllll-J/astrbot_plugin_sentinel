@@ -129,6 +129,7 @@
 | `ignore_admin` | `bool` | 是否忽略管理员 |
 | `notify_group_admin` | `bool` | 是否通知群组管理员 |
 | `notify_bot_admin` | `bool` | 是否通知 Bot 管理员 |
+| `show_rule_in_notification` | `bool` | 仅关键词规则使用；是否在通知中显示触发的关键词内容，默认关闭 |
 | `rule_user_whitelist` | `list` | 规则级用户白名单 |
 | `rule_user_monitor_list` | `list` | 规则级监控名单，留空表示全体 |
 | `kick_threshold` | `int` | 累计命中踢出阈值 |

@@ -68,6 +68,12 @@
                         "type": "bool",
                         "default": false
                     },
+                    "show_rule_in_notification": {
+                        "description": "通知中显示触发规则",
+                        "hint": "开启后，关键词规则命中通知会展示触发的关键词内容；关闭后仅在日志中记录。",
+                        "type": "bool",
+                        "default": false
+                    },
                     "rule_user_whitelist": {
                         "description": "规则特定用户白名单",
                         "hint": "该名单中的用户不会触发此条规则",

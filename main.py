@@ -319,6 +319,24 @@ class SentinelPlugin(Star):
 
             if matched:
                 rule_id = str(rule.get("_rule_id", i))
+                if rule.get("keywords"):
+                    logger.info(
+                        "[Sentinel] 规则命中 rule_id=%s source=%s group_id=%s user_id=%s keywords=%s",
+                        rule_id,
+                        rule.get("_rule_source", "unknown"),
+                        group_id,
+                        user_id,
+                        [str(k) for k in rule.get("keywords", [])],
+                    )
+                elif rule.get("msg_types"):
+                    logger.info(
+                        "[Sentinel] 规则命中 rule_id=%s source=%s group_id=%s user_id=%s msg_types=%s",
+                        rule_id,
+                        rule.get("_rule_source", "unknown"),
+                        group_id,
+                        user_id,
+                        [str(t) for t in rule.get("msg_types", [])],
+                    )
                 await self.execute_actions(event, rule, rule_id)
                 break
 

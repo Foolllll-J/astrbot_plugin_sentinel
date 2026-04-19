@@ -345,6 +345,9 @@ class SentinelPlugin(Star):
         user_id = event.get_sender_id()
         message_id = event.message_obj.message_id
 
+        # 解析撤回延时（默认 0 表示不延迟）
+        recall_delay = int(rule.get("recall_delay", 0))
+
         # 解析禁言时长
         mute_duration_str = str(rule.get("mute_duration", "0")).strip()
         duration = 0
@@ -359,6 +362,8 @@ class SentinelPlugin(Star):
 
         # 1. 撤回消息 (-1 表示不撤回也不禁言)
         if duration != -1:
+            if recall_delay > 0:
+                await asyncio.sleep(recall_delay)
             try:
                 await event.bot.api.call_action("delete_msg", message_id=message_id)
                 logger.info(f"[Sentinel] 已撤回群 {group_id} 中用户 {user_id} 的违规消息 {message_id}")

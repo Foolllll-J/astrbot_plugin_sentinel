@@ -39,10 +39,16 @@
                         "default": ""
                     },
                     "mute_duration": {
-                        "description": "禁言时长 (秒)",
+                        "description": "禁言时长（秒）",
                         "hint": "支持范围如 '30-120'，0表示不禁言，-1表示不禁言也不撤回",
                         "type": "string",
                         "default": "0"
+                    },
+                    "recall_delay": {
+                        "description": "延迟撤回时间（秒）",
+                        "hint": "命中后等待多少秒再执行撤回。留空表示不延迟。",
+                        "type": "int",
+                        "default": 0
                     },
                     "reply_message": {
                         "description": "撤回后发送的回复提醒",
@@ -87,7 +93,7 @@
                         "default": []
                     },
                     "kick_threshold": {
-                        "description": "踢出阈值(次数)",
+                        "description": "踢出阈值（次数）",
                         "hint": "累计命中该规则 N 次后踢出，0 表示不开启",
                         "type": "int",
                         "default": 0
@@ -133,10 +139,16 @@
                         "default": []
                     },
                     "mute_duration": {
-                        "description": "禁言时长 (秒)",
+                        "description": "禁言时长（秒）",
                         "hint": "支持范围如 '30-120'，0表示不禁言，-1表示不禁言也不撤回",
                         "type": "string",
                         "default": "0"
+                    },
+                    "recall_delay": {
+                        "description": "延迟撤回时间（秒）",
+                        "hint": "命中后等待多少秒再执行撤回。留空表示不延迟。",
+                        "type": "int",
+                        "default": 0
                     },
                     "reply_message": {
                         "description": "撤回后发送的回复提醒",
@@ -175,7 +187,7 @@
                         "default": []
                     },
                     "kick_threshold": {
-                        "description": "踢出阈值(次数)",
+                        "description": "踢出阈值（次数）",
                         "hint": "累计命中该规则 N 次后踢出，0 表示不开启",
                         "type": "int",
                         "default": 0
@@ -202,7 +214,7 @@
                 "default": []
             },
             "mute_duration": {
-                "description": "禁言时长 (秒)",
+                "description": "禁言时长（秒）",
                 "hint": "支持范围如 '30-120'，0表示不禁言，-1表示不禁言也不撤回",
                 "type": "string",
                 "default": "0"
@@ -220,7 +232,7 @@
                 "default": false
             },
             "kick_threshold": {
-                "description": "踢出阈值(次数)",
+                "description": "踢出阈值（次数）",
                 "hint": "累计命中该规则 N 次后踢出，0 表示不开启",
                 "type": "int",
                 "default": 0

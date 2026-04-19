@@ -125,6 +125,7 @@
 | `time_range` | `string` | 生效时段单字段，如 `2026-10-01~2026-10-07 Mon-Fri 09:00-18:00` |
 | `groups` | `list` | 生效群号，留空表示全部群 |
 | `mute_duration` | `string` | 禁言秒数或区间，`0` 不禁言，`-1` 不撤回不禁言 |
+| `recall_delay` | `int` | 延迟撤回时间 |
 | `reply_message` | `list` | 命中后随机回复 |
 | `ignore_admin` | `bool` | 是否忽略管理员 |
 | `notify_group_admin` | `bool` | 是否通知群组管理员 |

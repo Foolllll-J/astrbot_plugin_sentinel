@@ -210,6 +210,7 @@ async def notify_for_hit(
     safe_int: Callable[[Any, int], int],
     warned_no_admin_targets: bool,
     logger: Any,
+    notification_text: str = "",
 ) -> bool:
     keywords = rule.get("keywords", [])
     msg_types = rule.get("msg_types", [])
@@ -238,12 +239,13 @@ async def notify_for_hit(
         sender_name = ""
     user_line = f"用户: {sender_name} ({sender_id})" if sender_name else f"用户: {sender_id}"
     text = (
-        f"⚠️ 群哨兵通知\n"
+        f"💂 群哨兵通知\n"
         f"群号: {event.get_group_id()}\n"
         f"{user_line}\n"
         f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"{match_desc}\n"
-        f"动作: {' / '.join(actions)}"
+        + (f"消息原文: {notification_text}\n" if bool(rule.get("show_rule_in_notification", False)) and notification_text else "")
+        + f"动作: {' / '.join(actions)}"
     )
 
     if rule.get("_rule_source") == "command":

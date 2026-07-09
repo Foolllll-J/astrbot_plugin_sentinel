@@ -276,6 +276,7 @@ class SentinelPlugin(Star):
                     content_parts.append(descriptive_text)
 
         message_to_check = " ".join(content_parts)
+        notification_text = event.message_str.strip() if "卡片/分享" not in msg_types else ""
 
         # 3. 匹配规则
         candidate_rules = self._get_candidate_rules_for_group(group_id)
@@ -337,10 +338,10 @@ class SentinelPlugin(Star):
                         user_id,
                         [str(t) for t in rule.get("msg_types", [])],
                     )
-                await self.execute_actions(event, rule, rule_id)
+                await self.execute_actions(event, rule, rule_id, notification_text=notification_text)
                 break
 
-    async def execute_actions(self, event: AstrMessageEvent, rule: dict, rule_id: str):
+    async def execute_actions(self, event: AstrMessageEvent, rule: dict, rule_id: str, notification_text: str = ""):
         group_id = event.get_group_id()
         user_id = event.get_sender_id()
         message_id = event.message_obj.message_id
@@ -440,6 +441,7 @@ class SentinelPlugin(Star):
             safe_int=self._safe_int,
             warned_no_admin_targets=self._warned_no_admin_targets,
             logger=logger,
+            notification_text=notification_text,
         )
 
     @filter.command("监控")

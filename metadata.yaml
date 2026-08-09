@@ -1,9 +1,14 @@
-name: astrbot_plugin_sentinel # 插件唯一识别名，以 astrbot_plugin_ 前缀开头
-display_name: QQ 群哨兵 # 用于展示的名字，可以是方便人类阅读的名字（需要版本 >= v4.5.0，低版本不会报错，请放心填写）
-desc: 实时监控群聊消息，支持关键词、正则表达式、消息类型识别及精细的监控时段控制，自动执行撤回、禁言、踢出等操作。 # 插件简短描述
-version: v1.2.3 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: Foolllll # 作者
-repo: https://github.com/Foolllll-J/astrbot_plugin_sentinel # 插件的仓库地址
+name: astrbot_plugin_sentinel
+display_name: QQ 群哨兵
+desc: 实时监控群聊消息，支持关键词、正则表达式、消息类型识别及精细的监控时段控制，自动执行撤回、禁言、踢出等操作。
+version: v1.2.4
+author: Foolllll
+author_url: https://github.com/Foolllll-J
+repo: https://github.com/Foolllll-J/astrbot_plugin_sentinel
 support_platforms:
   - aiocqhttp
 astrbot_version: ">=4.10.4"
+category: 工具
+tags: 
+  - 群管理
+  - 群监控

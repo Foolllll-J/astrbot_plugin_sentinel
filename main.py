@@ -338,10 +338,11 @@ class SentinelPlugin(Star):
                         user_id,
                         [str(t) for t in rule.get("msg_types", [])],
                     )
-                await self.execute_actions(event, rule, rule_id, notification_text=notification_text)
+                group_name = raw_message.get('group_name', str(event.get_group_id()))
+                await self.execute_actions(event, rule, rule_id, notification_text=notification_text, group_name=group_name)
                 break
 
-    async def execute_actions(self, event: AstrMessageEvent, rule: dict, rule_id: str, notification_text: str = ""):
+    async def execute_actions(self, event: AstrMessageEvent, rule: dict, rule_id: str, notification_text: str = "", group_name: str = ""):
         group_id = event.get_group_id()
         user_id = event.get_sender_id()
         message_id = event.message_obj.message_id
@@ -442,6 +443,7 @@ class SentinelPlugin(Star):
             warned_no_admin_targets=self._warned_no_admin_targets,
             logger=logger,
             notification_text=notification_text,
+            group_name=group_name,
         )
 
     @filter.command("监控")
